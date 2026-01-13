@@ -148,6 +148,23 @@
         #planet-label.visible {
             opacity: 1;
         }
+
+        #mode-indicator {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ff66;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+            letter-spacing: 2px;
+        }
+
+        #mode-indicator.visible {
+            opacity: 0.7;
+        }
     </style>
 </head>
 <body>
@@ -164,12 +181,12 @@
     <div class="hand-cursor" id="cursor"></div>
 
     <div id="planet-label"></div>
+    <div id="mode-indicator"></div>
 
     <div id="instructions">
         <h2>🌌 Solar System</h2>
-        <p>🤏 <strong>Pinch</strong> to grab a planet</p>
-        <p>✋ <strong>Move</strong> while pinching to spin it</p>
-        <p>🤏🤏 <strong>Two hands</strong> to zoom in/out</p>
+        <p>🤏 <strong>Pinch planet</strong> to grab & spin</p>
+        <p>🤏 <strong>Pinch space</strong> + move to zoom</p>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -184,74 +201,76 @@
         let solarSystemGroup;
 
         // Camera controls
-        let targetCamX = 0, targetCamY = 30, targetCamZ = 50;
-        let currentCamX = 0, currentCamY = 30, currentCamZ = 50;
-        let targetLookAt = { x: 0, y: 0, z: 0 };
+        let targetCamY = 30, targetCamZ = 50;
+        let currentCamY = 30, currentCamZ = 50;
 
         // Hand tracking
-        let hands = { left: null, right: null };
         let lastPinchPos = null;
-        let lastTwoHandDist = null;
+        let isZooming = false;
 
         const planetData = [
             { name: 'Sun', radius: 3, distance: 0, color: 0xffdd00, emissive: true, rotationSpeed: 0.001 },
-            { name: 'Mercury', radius: 0.3, distance: 6, color: 0x8c7853, rotationSpeed: 0.01 },
-            { name: 'Venus', radius: 0.5, distance: 9, color: 0xffc649, rotationSpeed: 0.008 },
-            { name: 'Earth', radius: 0.55, distance: 12, color: 0x6b93d6, rotationSpeed: 0.01 },
-            { name: 'Mars', radius: 0.4, distance: 16, color: 0xc1440e, rotationSpeed: 0.009 },
-            { name: 'Jupiter', radius: 1.5, distance: 22, color: 0xd8ca9d, rotationSpeed: 0.02 },
-            { name: 'Saturn', radius: 1.2, distance: 30, color: 0xead6b8, hasRings: true, rotationSpeed: 0.018 },
-            { name: 'Uranus', radius: 0.8, distance: 38, color: 0xd1e7e7, rotationSpeed: 0.012 },
-            { name: 'Neptune', radius: 0.75, distance: 45, color: 0x5b5ddf, rotationSpeed: 0.011 }
+            { name: 'Mercury', radius: 0.4, distance: 6, color: 0x8c7853, rotationSpeed: 0.01 },
+            { name: 'Venus', radius: 0.6, distance: 9, color: 0xffc649, rotationSpeed: 0.008 },
+            { name: 'Earth', radius: 0.65, distance: 12, color: 0x6b93d6, rotationSpeed: 0.01 },
+            { name: 'Mars', radius: 0.5, distance: 16, color: 0xc1440e, rotationSpeed: 0.009 },
+            { name: 'Jupiter', radius: 1.8, distance: 24, color: 0xd8ca9d, rotationSpeed: 0.02 },
+            { name: 'Saturn', radius: 1.5, distance: 32, color: 0xead6b8, hasRings: true, rotationSpeed: 0.018 },
+            { name: 'Uranus', radius: 1.0, distance: 40, color: 0xd1e7e7, rotationSpeed: 0.012 },
+            { name: 'Neptune', radius: 0.95, distance: 48, color: 0x5b5ddf, rotationSpeed: 0.011 }
         ];
 
-        function createPlanetTexture(color, isEarth = false, isJupiter = false) {
+        function createPlanetTexture(color, name) {
             const canvas = document.createElement('canvas');
             canvas.width = 512;
             canvas.height = 256;
             const ctx = canvas.getContext('2d');
 
-            // Base color
             const baseColor = '#' + color.toString(16).padStart(6, '0');
             ctx.fillStyle = baseColor;
             ctx.fillRect(0, 0, 512, 256);
 
-            // Add some variation
-            for (let i = 0; i < 50; i++) {
-                const x = Math.random() * 512;
-                const y = Math.random() * 256;
-                const r = Math.random() * 30 + 10;
+            // Add texture variation
+            for (let i = 0; i < 30; i++) {
                 ctx.beginPath();
-                ctx.arc(x, y, r, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(${Math.random() > 0.5 ? 255 : 0}, ${Math.random() > 0.5 ? 255 : 0}, ${Math.random() > 0.5 ? 255 : 0}, 0.1)`;
+                ctx.arc(Math.random() * 512, Math.random() * 256, Math.random() * 20 + 5, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, 0.05)`;
                 ctx.fill();
             }
 
-            if (isEarth) {
-                // Add continents
+            if (name === 'Earth') {
                 ctx.fillStyle = '#2d5a27';
                 ctx.beginPath();
-                ctx.ellipse(150, 100, 60, 40, 0, 0, Math.PI * 2);
+                ctx.ellipse(150, 100, 50, 35, 0, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.beginPath();
-                ctx.ellipse(350, 80, 80, 50, 0.3, 0, Math.PI * 2);
+                ctx.ellipse(350, 90, 70, 45, 0.3, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.beginPath();
-                ctx.ellipse(380, 160, 40, 50, 0, 0, Math.PI * 2);
+                ctx.ellipse(380, 170, 35, 45, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Ice caps
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, 512, 20);
+                ctx.fillRect(0, 236, 512, 20);
+            }
+
+            if (name === 'Jupiter') {
+                for (let y = 0; y < 256; y += 15) {
+                    ctx.fillStyle = y % 30 === 0 ? 'rgba(139, 90, 43, 0.4)' : 'rgba(255, 255, 255, 0.1)';
+                    ctx.fillRect(0, y, 512, 8);
+                }
+                ctx.fillStyle = '#8b4513';
+                ctx.beginPath();
+                ctx.ellipse(200, 140, 35, 20, 0, 0, Math.PI * 2);
                 ctx.fill();
             }
 
-            if (isJupiter) {
-                // Add bands
+            if (name === 'Saturn') {
                 for (let y = 0; y < 256; y += 20) {
-                    ctx.fillStyle = y % 40 === 0 ? 'rgba(139, 90, 43, 0.3)' : 'rgba(210, 180, 140, 0.2)';
+                    ctx.fillStyle = 'rgba(139, 119, 101, 0.3)';
                     ctx.fillRect(0, y, 512, 10);
                 }
-                // Great red spot
-                ctx.fillStyle = '#8b4513';
-                ctx.beginPath();
-                ctx.ellipse(200, 130, 40, 25, 0, 0, Math.PI * 2);
-                ctx.fill();
             }
 
             return new THREE.CanvasTexture(canvas);
@@ -283,22 +302,20 @@
 
             solarSystemGroup = new THREE.Group();
 
-            // Create planets
-            planetData.forEach((data, index) => {
+            planetData.forEach((data) => {
                 const group = new THREE.Group();
 
-                // Planet sphere
                 const geometry = new THREE.SphereGeometry(data.radius, 32, 32);
                 let material;
 
                 if (data.emissive) {
                     material = new THREE.MeshBasicMaterial({
-                        map: createPlanetTexture(data.color),
+                        map: createPlanetTexture(data.color, data.name),
                         color: data.color
                     });
                 } else {
                     material = new THREE.MeshStandardMaterial({
-                        map: createPlanetTexture(data.color, data.name === 'Earth', data.name === 'Jupiter'),
+                        map: createPlanetTexture(data.color, data.name),
                         roughness: 0.8,
                         metalness: 0.1
                     });
@@ -307,25 +324,23 @@
                 const mesh = new THREE.Mesh(geometry, material);
                 group.add(mesh);
 
-                // Saturn's rings
                 if (data.hasRings) {
-                    const ringGeo = new THREE.RingGeometry(1.5, 2.5, 64);
+                    const ringGeo = new THREE.RingGeometry(2, 3, 64);
                     const ringMat = new THREE.MeshBasicMaterial({
                         color: 0xc9b896,
                         side: THREE.DoubleSide,
                         transparent: true,
-                        opacity: 0.7
+                        opacity: 0.6
                     });
                     const ring = new THREE.Mesh(ringGeo, ringMat);
-                    ring.rotation.x = Math.PI / 2;
+                    ring.rotation.x = Math.PI / 2.5;
                     group.add(ring);
                 }
 
-                // Position
                 group.position.x = data.distance;
                 group.userData = {
                     name: data.name,
-                    baseDistance: data.distance,
+                    radius: data.radius,
                     rotationSpeed: data.rotationSpeed,
                     mesh: mesh
                 };
@@ -339,27 +354,20 @@
                     const orbitPoints = [];
                     for (let i = 0; i <= 64; i++) {
                         const angle = (i / 64) * Math.PI * 2;
-                        orbitPoints.push(
-                            Math.cos(angle) * data.distance,
-                            0,
-                            Math.sin(angle) * data.distance
-                        );
+                        orbitPoints.push(Math.cos(angle) * data.distance, 0, Math.sin(angle) * data.distance);
                     }
                     orbitGeo.setAttribute('position', new THREE.Float32BufferAttribute(orbitPoints, 3));
-                    const orbitMat = new THREE.LineBasicMaterial({ color: 0x333344, transparent: true, opacity: 0.3 });
-                    const orbit = new THREE.Line(orbitGeo, orbitMat);
+                    const orbit = new THREE.Line(orbitGeo, new THREE.LineBasicMaterial({ color: 0x333344, transparent: true, opacity: 0.3 }));
                     solarSystemGroup.add(orbit);
                 }
             });
 
             scene.add(solarSystemGroup);
 
-            // Lighting
             const ambientLight = new THREE.AmbientLight(0x333333);
             scene.add(ambientLight);
 
             const sunLight = new THREE.PointLight(0xffffff, 2, 200);
-            sunLight.position.set(0, 0, 0);
             scene.add(sunLight);
 
             window.addEventListener('resize', () => {
@@ -372,32 +380,17 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            // Auto-rotate planets
             planets.forEach(planet => {
-                if (!selectedPlanet || selectedPlanet !== planet) {
-                    planet.children[0].rotation.y += planet.userData.rotationSpeed;
-                }
+                planet.children[0].rotation.y += planet.userData.rotationSpeed;
             });
 
-            // Smooth camera
-            currentCamX += (targetCamX - currentCamX) * 0.05;
-            currentCamY += (targetCamY - currentCamY) * 0.05;
-            currentCamZ += (targetCamZ - currentCamZ) * 0.05;
+            currentCamY += (targetCamY - currentCamY) * 0.08;
+            currentCamZ += (targetCamZ - currentCamZ) * 0.08;
 
-            camera.position.set(currentCamX, currentCamY, currentCamZ);
-            camera.lookAt(targetLookAt.x, targetLookAt.y, targetLookAt.z);
+            camera.position.set(0, currentCamY, currentCamZ);
+            camera.lookAt(0, 0, 0);
 
             renderer.render(scene, camera);
-        }
-
-        function screenToWorld(screenX, screenY) {
-            const vector = new THREE.Vector3(
-                (screenX / window.innerWidth) * 2 - 1,
-                -(screenY / window.innerHeight) * 2 + 1,
-                0.5
-            );
-            vector.unproject(camera);
-            return vector;
         }
 
         function findNearestPlanet(screenX, screenY) {
@@ -409,34 +402,30 @@
 
             raycaster.setFromCamera(mouse, camera);
 
+            // Direct raycast hit
+            for (const planet of planets) {
+                const intersects = raycaster.intersectObject(planet.children[0]);
+                if (intersects.length > 0) {
+                    return planet;
+                }
+            }
+
+            // Proximity check
             let nearest = null;
             let nearestDist = Infinity;
 
             planets.forEach(planet => {
-                const meshes = planet.children.filter(c => c.type === 'Mesh');
-                const intersects = raycaster.intersectObjects(meshes);
-                if (intersects.length > 0 && intersects[0].distance < nearestDist) {
-                    nearestDist = intersects[0].distance;
+                const pos = planet.position.clone().project(camera);
+                const px = (pos.x + 1) / 2 * window.innerWidth;
+                const py = (-pos.y + 1) / 2 * window.innerHeight;
+                const dist = Math.sqrt(Math.pow(px - screenX, 2) + Math.pow(py - screenY, 2));
+
+                const threshold = 50 + planet.userData.radius * 15;
+                if (dist < threshold && dist < nearestDist) {
+                    nearestDist = dist;
                     nearest = planet;
                 }
             });
-
-            // If no direct hit, find closest planet to cursor
-            if (!nearest) {
-                planets.forEach(planet => {
-                    const planetScreen = planet.position.clone().project(camera);
-                    const px = (planetScreen.x + 1) / 2 * window.innerWidth;
-                    const py = (-planetScreen.y + 1) / 2 * window.innerHeight;
-                    const dist = Math.sqrt(Math.pow(px - screenX, 2) + Math.pow(py - screenY, 2));
-
-                    // Only select if within reasonable distance (based on planet size)
-                    const threshold = 80 + planet.userData.mesh.geometry.parameters.radius * 20;
-                    if (dist < threshold && dist < nearestDist) {
-                        nearestDist = dist;
-                        nearest = planet;
-                    }
-                });
-            }
 
             return nearest;
         }
@@ -448,6 +437,7 @@
             const loading = document.getElementById('loading');
             const cursor = document.getElementById('cursor');
             const planetLabel = document.getElementById('planet-label');
+            const modeIndicator = document.getElementById('mode-indicator');
 
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
@@ -468,7 +458,7 @@
             });
 
             mpHands.setOptions({
-                maxNumHands: 2,
+                maxNumHands: 1,
                 modelComplexity: 1,
                 minDetectionConfidence: 0.7,
                 minTrackingConfidence: 0.5
@@ -477,25 +467,20 @@
             mpHands.onResults((results) => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                hands.left = null;
-                hands.right = null;
+                if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                    const landmarks = results.multiHandLandmarks[0];
 
-                if (results.multiHandLandmarks && results.multiHandedness) {
-                    for (let i = 0; i < results.multiHandLandmarks.length; i++) {
-                        const landmarks = results.multiHandLandmarks[i];
-                        const label = results.multiHandedness[i].label;
+                    drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#00ff66', lineWidth: 2 });
 
-                        drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#00ff66', lineWidth: 2 });
-
-                        if (label === 'Left') {
-                            hands.right = landmarks;
-                        } else {
-                            hands.left = landmarks;
-                        }
-                    }
+                    processHand(landmarks, cursor, planetLabel, modeIndicator);
+                } else {
+                    cursor.classList.remove('visible', 'pinching');
+                    planetLabel.classList.remove('visible');
+                    modeIndicator.classList.remove('visible');
+                    selectedPlanet = null;
+                    isZooming = false;
+                    lastPinchPos = null;
                 }
-
-                processHands(cursor, planetLabel);
             });
 
             loading.style.display = 'none';
@@ -508,105 +493,83 @@
             cam.start();
         }
 
-        function getPinchCenter(hand) {
-            const thumb = hand[4];
-            const index = hand[8];
-            return {
-                x: (thumb.x + index.x) / 2,
-                y: (thumb.y + index.y) / 2
-            };
-        }
+        function processHand(landmarks, cursor, planetLabel, modeIndicator) {
+            const thumb = landmarks[4];
+            const index = landmarks[8];
 
-        function getPinchDistance(hand) {
-            const thumb = hand[4];
-            const index = hand[8];
-            return Math.sqrt(Math.pow(thumb.x - index.x, 2) + Math.pow(thumb.y - index.y, 2));
-        }
+            const pinchX = (thumb.x + index.x) / 2;
+            const pinchY = (thumb.y + index.y) / 2;
+            const pinchDist = Math.sqrt(Math.pow(thumb.x - index.x, 2) + Math.pow(thumb.y - index.y, 2));
 
-        function processHands(cursor, planetLabel) {
-            const leftHand = hands.left;
-            const rightHand = hands.right;
+            const screenX = (1 - pinchX) * window.innerWidth;
+            const screenY = pinchY * window.innerHeight;
+            const isPinching = pinchDist < 0.07;
 
-            // Use first available hand for cursor
-            const activeHand = leftHand || rightHand;
+            // Update cursor
+            cursor.style.left = screenX + 'px';
+            cursor.style.top = screenY + 'px';
+            cursor.classList.add('visible');
+            cursor.classList.toggle('pinching', isPinching);
 
-            if (activeHand) {
-                const pos = getPinchCenter(activeHand);
-                const screenX = (1 - pos.x) * window.innerWidth;
-                const screenY = pos.y * window.innerHeight;
-                const isPinching = getPinchDistance(activeHand) < 0.07;
+            const nearPlanet = findNearestPlanet(screenX, screenY);
 
-                cursor.style.left = screenX + 'px';
-                cursor.style.top = screenY + 'px';
-                cursor.classList.add('visible');
-                cursor.classList.toggle('pinching', isPinching);
-
-                // Check for second hand (zoom)
-                const secondHand = leftHand && rightHand ? (activeHand === leftHand ? rightHand : leftHand) : null;
-                const secondPinching = secondHand && getPinchDistance(secondHand) < 0.07;
-
-                // Two hands = zoom
-                if (isPinching && secondPinching) {
-                    const pos1 = getPinchCenter(leftHand);
-                    const pos2 = getPinchCenter(rightHand);
-                    const dist = Math.sqrt(Math.pow(pos1.x - pos2.x, 2) + Math.pow(pos1.y - pos2.y, 2));
-
-                    if (lastTwoHandDist !== null) {
-                        const delta = (lastTwoHandDist - dist) * 100;
-                        targetCamZ = Math.max(15, Math.min(100, targetCamZ + delta));
-                        targetCamY = targetCamZ * 0.6;
+            if (isPinching) {
+                if (lastPinchPos === null) {
+                    // Just started pinching - decide mode
+                    if (nearPlanet) {
+                        selectedPlanet = nearPlanet;
+                        isZooming = false;
+                    } else {
+                        selectedPlanet = null;
+                        isZooming = true;
                     }
-
-                    lastTwoHandDist = dist;
-                    lastPinchPos = null;
-                    selectedPlanet = null;
-                    planetLabel.classList.remove('visible');
                 }
-                // Single hand pinch = grab planet
-                else if (isPinching) {
-                    if (!selectedPlanet) {
-                        selectedPlanet = findNearestPlanet(screenX, screenY);
-                        if (selectedPlanet) {
-                            planetLabel.textContent = selectedPlanet.userData.name;
-                            planetLabel.style.color = '#' + planetData.find(p => p.name === selectedPlanet.userData.name).color.toString(16).padStart(6, '0');
-                            planetLabel.classList.add('visible');
-                        }
-                    }
 
-                    if (selectedPlanet && lastPinchPos) {
-                        const deltaX = (pos.x - lastPinchPos.x) * 8;
-                        const deltaY = (pos.y - lastPinchPos.y) * 8;
+                if (lastPinchPos) {
+                    const deltaX = (pinchX - lastPinchPos.x) * 6;
+                    const deltaY = (pinchY - lastPinchPos.y) * 6;
 
-                        // Rotate the selected planet
+                    if (selectedPlanet) {
+                        // Spin the planet
                         selectedPlanet.children[0].rotation.y -= deltaX;
                         selectedPlanet.children[0].rotation.x += deltaY;
+                    } else if (isZooming) {
+                        // Zoom with vertical movement
+                        targetCamZ = Math.max(15, Math.min(100, targetCamZ + deltaY * 20));
+                        targetCamY = targetCamZ * 0.6;
                     }
-
-                    lastPinchPos = pos;
-                    lastTwoHandDist = null;
                 }
-                // No pinch
-                else {
-                    // Show planet name on hover
-                    const hoveredPlanet = findNearestPlanet(screenX, screenY);
-                    if (hoveredPlanet) {
-                        planetLabel.textContent = hoveredPlanet.userData.name;
-                        planetLabel.style.color = '#' + planetData.find(p => p.name === hoveredPlanet.userData.name).color.toString(16).padStart(6, '0');
-                        planetLabel.classList.add('visible');
-                    } else {
-                        planetLabel.classList.remove('visible');
-                    }
 
-                    selectedPlanet = null;
-                    lastPinchPos = null;
-                    lastTwoHandDist = null;
+                lastPinchPos = { x: pinchX, y: pinchY };
+
+                // Update labels
+                if (selectedPlanet) {
+                    const data = planetData.find(p => p.name === selectedPlanet.userData.name);
+                    planetLabel.textContent = selectedPlanet.userData.name;
+                    planetLabel.style.color = '#' + data.color.toString(16).padStart(6, '0');
+                    planetLabel.classList.add('visible');
+                    modeIndicator.textContent = 'SPINNING';
+                    modeIndicator.classList.add('visible');
+                } else {
+                    planetLabel.classList.remove('visible');
+                    modeIndicator.textContent = 'ZOOMING';
+                    modeIndicator.classList.add('visible');
                 }
             } else {
-                cursor.classList.remove('visible', 'pinching');
-                selectedPlanet = null;
+                // Not pinching - show hover label
                 lastPinchPos = null;
-                lastTwoHandDist = null;
-                planetLabel.classList.remove('visible');
+                selectedPlanet = null;
+                isZooming = false;
+                modeIndicator.classList.remove('visible');
+
+                if (nearPlanet) {
+                    const data = planetData.find(p => p.name === nearPlanet.userData.name);
+                    planetLabel.textContent = nearPlanet.userData.name;
+                    planetLabel.style.color = '#' + data.color.toString(16).padStart(6, '0');
+                    planetLabel.classList.add('visible');
+                } else {
+                    planetLabel.classList.remove('visible');
+                }
             }
         }
 
