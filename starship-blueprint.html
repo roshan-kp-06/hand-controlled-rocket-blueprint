@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Starship Blueprint - Holographic Hand Control</title>
+    <title>Starship Blueprint</title>
     <style>
         * {
             margin: 0;
@@ -13,169 +13,101 @@
 
         body {
             overflow: hidden;
-            background: #0a0a12;
-            font-family: 'Courier New', monospace;
+            background: #0a0a0f;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         #container {
             width: 100vw;
             height: 100vh;
-            position: relative;
-        }
-
-        /* Scanline effect */
-        #container::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: repeating-linear-gradient(
-                0deg,
-                rgba(0, 0, 0, 0.1) 0px,
-                rgba(0, 0, 0, 0.1) 1px,
-                transparent 1px,
-                transparent 3px
-            );
-            pointer-events: none;
-            z-index: 1000;
         }
 
         #webcam {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            width: 280px;
-            height: 210px;
-            border-radius: 8px;
-            border: 2px solid rgba(0, 200, 255, 0.5);
+            width: 200px;
+            height: 150px;
+            border-radius: 12px;
+            border: 2px solid rgba(0, 255, 100, 0.3);
             transform: scaleX(-1);
             z-index: 100;
             object-fit: cover;
-            box-shadow: 0 0 20px rgba(0, 200, 255, 0.3);
         }
 
         #canvas {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            width: 280px;
-            height: 210px;
-            border-radius: 8px;
+            width: 200px;
+            height: 150px;
+            border-radius: 12px;
             z-index: 101;
             pointer-events: none;
             transform: scaleX(-1);
         }
 
-        #hud {
+        /* Hand cursor circles */
+        .hand-cursor {
             position: fixed;
-            top: 20px;
-            left: 20px;
-            color: #00d4ff;
-            z-index: 100;
-            padding: 20px;
-            max-width: 320px;
-        }
-
-        #hud h1 {
-            font-size: 28px;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            text-shadow: 0 0 10px #00d4ff, 0 0 20px #00d4ff;
-        }
-
-        #hud .subtitle {
-            font-size: 12px;
-            color: rgba(0, 212, 255, 0.6);
-            margin-bottom: 20px;
-            letter-spacing: 2px;
-        }
-
-        .control-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin: 12px 0;
-            font-size: 13px;
-            color: rgba(0, 212, 255, 0.8);
-        }
-
-        .control-icon {
-            width: 40px;
-            height: 40px;
-            border: 1px solid rgba(0, 212, 255, 0.4);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            background: rgba(0, 212, 255, 0.1);
-        }
-
-        #status-panel {
-            position: fixed;
-            top: 20px;
-            right: 320px;
-            color: #00d4ff;
-            z-index: 100;
-            padding: 15px 20px;
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            background: rgba(0, 20, 40, 0.8);
-            border-radius: 8px;
-            min-width: 200px;
-        }
-
-        #status-panel .status-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 5px 0;
-            font-size: 12px;
-        }
-
-        #status-panel .label {
-            color: rgba(0, 212, 255, 0.6);
-        }
-
-        #status-panel .value {
-            color: #00ff88;
-        }
-
-        #status-panel .value.inactive {
-            color: #ff6b6b;
-        }
-
-        #part-label {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #00ff88;
-            font-size: 24px;
-            text-transform: uppercase;
-            letter-spacing: 4px;
-            text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
+            width: 60px;
+            height: 60px;
+            border: 3px solid #00ff66;
+            border-radius: 50%;
             pointer-events: none;
-            z-index: 50;
+            z-index: 200;
+            transform: translate(-50%, -50%);
+            transition: transform 0.05s, opacity 0.2s, border-color 0.2s, box-shadow 0.2s;
             opacity: 0;
-            transition: opacity 0.3s;
-            text-align: center;
         }
 
-        #part-label.visible {
+        .hand-cursor.visible {
             opacity: 1;
         }
 
-        #part-label .part-name {
-            font-size: 32px;
-            margin-bottom: 10px;
+        .hand-cursor.pinching {
+            border-color: #00ffaa;
+            box-shadow: 0 0 30px rgba(0, 255, 170, 0.6);
+            transform: translate(-50%, -50%) scale(0.7);
         }
 
-        #part-label .part-desc {
+        .hand-cursor::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background: #00ff66;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .hand-cursor.pinching::after {
+            background: #00ffaa;
+        }
+
+        #instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 12px;
             font-size: 14px;
-            color: rgba(0, 255, 136, 0.7);
-            letter-spacing: 2px;
+        }
+
+        #instructions h2 {
+            font-size: 18px;
+            margin-bottom: 12px;
+            color: #00ff66;
+        }
+
+        #instructions p {
+            margin: 8px 0;
+            color: rgba(255, 255, 255, 0.8);
         }
 
         .loading {
@@ -183,83 +115,50 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: #00d4ff;
-            font-size: 18px;
-            z-index: 200;
+            color: white;
+            font-size: 20px;
+            z-index: 300;
             text-align: center;
-            letter-spacing: 2px;
         }
 
         .loading-spinner {
-            width: 60px;
-            height: 60px;
-            border: 2px solid rgba(0, 212, 255, 0.2);
-            border-top-color: #00d4ff;
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 255, 102, 0.2);
+            border-top-color: #00ff66;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            margin: 0 auto 15px;
         }
 
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
 
-        #explosion-indicator {
+        #zoom-indicator {
             position: fixed;
-            bottom: 250px;
-            right: 20px;
-            width: 280px;
-            padding: 10px;
-            background: rgba(0, 20, 40, 0.8);
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            border-radius: 8px;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ff66;
+            font-size: 16px;
+            opacity: 0;
+            transition: opacity 0.3s;
             z-index: 100;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 20px;
         }
 
-        #explosion-indicator .bar-label {
-            font-size: 11px;
-            color: rgba(0, 212, 255, 0.6);
-            margin-bottom: 5px;
-            letter-spacing: 1px;
-        }
-
-        #explosion-indicator .bar-container {
-            height: 8px;
-            background: rgba(0, 212, 255, 0.1);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        #explosion-indicator .bar-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #00d4ff, #00ff88);
-            border-radius: 4px;
-            transition: width 0.1s;
-        }
-
-        /* Grid background */
-        #grid-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image:
-                linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            z-index: -1;
+        #zoom-indicator.visible {
+            opacity: 1;
         }
     </style>
 </head>
 <body>
-    <div id="grid-bg"></div>
-
     <div id="loading" class="loading">
         <div class="loading-spinner"></div>
-        <div>INITIALIZING HOLOGRAPHIC DISPLAY</div>
-        <div style="font-size: 12px; margin-top: 10px; opacity: 0.6;">Loading hand tracking system...</div>
+        <div>Loading...</div>
     </div>
 
     <div id="container"></div>
@@ -267,416 +166,185 @@
     <video id="webcam" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
 
-    <div id="hud">
-        <h1>STARSHIP</h1>
-        <div class="subtitle">HOLOGRAPHIC BLUEPRINT v2.0</div>
+    <div class="hand-cursor" id="cursor-left"></div>
+    <div class="hand-cursor" id="cursor-right"></div>
 
-        <div class="control-item">
-            <div class="control-icon">🖐️</div>
-            <span>Left hand rotates model</span>
-        </div>
-        <div class="control-item">
-            <div class="control-icon">✋</div>
-            <span>Right hand zooms in/out</span>
-        </div>
-        <div class="control-item">
-            <div class="control-icon">🤏🤏</div>
-            <span>Both pinch = grab & spin</span>
-        </div>
-        <div class="control-item">
-            <div class="control-icon">↔️</div>
-            <span>Spread hands = explode view</span>
-        </div>
-        <div class="control-item">
-            <div class="control-icon">👉</div>
-            <span>Point to highlight parts</span>
-        </div>
+    <div id="zoom-indicator">ZOOM</div>
+
+    <div id="instructions">
+        <h2>🚀 Starship Blueprint</h2>
+        <p>🤏 <strong>Pinch</strong> to grab</p>
+        <p>✋ <strong>Move</strong> while pinching to spin</p>
+        <p>🤏🤏 <strong>Two hands</strong> pinch + spread to zoom</p>
     </div>
 
-    <div id="status-panel">
-        <div class="status-row">
-            <span class="label">LEFT HAND</span>
-            <span class="value inactive" id="left-status">SEARCHING</span>
-        </div>
-        <div class="status-row">
-            <span class="label">RIGHT HAND</span>
-            <span class="value inactive" id="right-status">SEARCHING</span>
-        </div>
-        <div class="status-row">
-            <span class="label">MODE</span>
-            <span class="value" id="mode-status">STANDBY</span>
-        </div>
-        <div class="status-row">
-            <span class="label">EXPLOSION</span>
-            <span class="value" id="explosion-status">0%</span>
-        </div>
-    </div>
-
-    <div id="explosion-indicator">
-        <div class="bar-label">EXPLOSION LEVEL</div>
-        <div class="bar-container">
-            <div class="bar-fill" id="explosion-bar"></div>
-        </div>
-    </div>
-
-    <div id="part-label">
-        <div class="part-name" id="part-name"></div>
-        <div class="part-desc" id="part-desc"></div>
-    </div>
-
-    <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-    <!-- MediaPipe -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 
     <script>
-        // Three.js setup
-        let scene, camera, renderer;
-        let rocketGroup, partsGroup;
-        let targetRotationX = 0;
-        let targetRotationY = 0;
-        let currentRotationX = 0;
-        let currentRotationY = 0;
-        let rotationVelocityX = 0;
-        let rotationVelocityY = 0;
-        let targetZoom = 8;
-        let currentZoom = 8;
-        let explosionLevel = 0;
-        let targetExplosion = 0;
+        // Three.js
+        let scene, camera, renderer, rocketGroup;
+        let targetRotX = 0, targetRotY = 0;
+        let currentRotX = 0, currentRotY = 0;
+        let targetZoom = 6, currentZoom = 6;
 
-        // Rocket parts with metadata
-        const rocketParts = [];
-        const partData = {
-            noseCone: { name: 'NOSE CONE', desc: 'Aerodynamic fairing • Heat shield tiles', offset: 4.5 },
-            payloadBay: { name: 'PAYLOAD BAY', desc: 'Cargo capacity: 100-150 tons to LEO', offset: 3.2 },
-            loxTank: { name: 'LOX TANK', desc: 'Liquid Oxygen • 1,200 tons capacity', offset: 1.8 },
-            ch4Tank: { name: 'CH4 TANK', desc: 'Liquid Methane • 240 tons capacity', offset: 0.3 },
-            engineBay: { name: 'ENGINE BAY', desc: 'Thrust structure • Propellant management', offset: -1.2 },
-            raptorEngines: { name: 'RAPTOR ENGINES', desc: '6× Raptor 2 • 1,500 kN thrust each', offset: -2.5 },
-            fins: { name: 'GRID FINS', desc: 'Aerodynamic control surfaces', offset: -1.0 }
-        };
+        // Hand state
+        let hands = { left: null, right: null };
+        let lastPinchPos = null;
+        let lastTwoHandDist = null;
 
-        // Hand tracking state
-        let leftHand = null;
-        let rightHand = null;
-        let lastLeftPos = null;
-        let lastRightPos = null;
-        let bothPinching = false;
-        let highlightedPart = null;
-
-        // Create holographic material
-        function createHoloMaterial(color = 0x00d4ff, opacity = 0.6) {
+        function createHoloMaterial(color = 0x00aaff) {
             return new THREE.MeshBasicMaterial({
                 color: color,
-                transparent: true,
-                opacity: opacity,
                 wireframe: true,
-                side: THREE.DoubleSide
-            });
-        }
-
-        function createGlowMaterial(color = 0x00d4ff) {
-            return new THREE.MeshBasicMaterial({
-                color: color,
                 transparent: true,
-                opacity: 0.15,
-                side: THREE.BackSide
+                opacity: 0.7
             });
-        }
-
-        function createRocketPart(geometry, name, yPosition, explosionOffset) {
-            const group = new THREE.Group();
-
-            // Main wireframe
-            const mesh = new THREE.Mesh(geometry, createHoloMaterial());
-            group.add(mesh);
-
-            // Inner glow
-            const glowGeo = geometry.clone();
-            glowGeo.scale(1.05, 1.05, 1.05);
-            const glow = new THREE.Mesh(glowGeo, createGlowMaterial());
-            group.add(glow);
-
-            // Edge highlight
-            const edges = new THREE.EdgesGeometry(geometry);
-            const line = new THREE.LineSegments(
-                edges,
-                new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.8 })
-            );
-            group.add(line);
-
-            group.position.y = yPosition;
-            group.userData = {
-                name: name,
-                baseY: yPosition,
-                explosionOffset: explosionOffset,
-                mesh: mesh,
-                glow: glow,
-                edges: line
-            };
-
-            return group;
         }
 
         function initScene() {
             scene = new THREE.Scene();
-            scene.fog = new THREE.Fog(0x0a0a12, 15, 30);
 
-            camera = new THREE.PerspectiveCamera(
-                50,
-                window.innerWidth / window.innerHeight,
-                0.1,
-                1000
-            );
-            camera.position.z = 8;
-            camera.position.y = 2;
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 6;
+            camera.position.y = 1;
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setClearColor(0x0a0a12);
+            renderer.setClearColor(0x0a0a0f);
             document.getElementById('container').appendChild(renderer.domElement);
 
-            // Create starfield
-            const starGeometry = new THREE.BufferGeometry();
-            const starCount = 3000;
-            const positions = new Float32Array(starCount * 3);
-
-            for (let i = 0; i < starCount * 3; i += 3) {
-                positions[i] = (Math.random() - 0.5) * 100;
-                positions[i + 1] = (Math.random() - 0.5) * 100;
-                positions[i + 2] = (Math.random() - 0.5) * 100 - 20;
+            // Stars
+            const starGeo = new THREE.BufferGeometry();
+            const starPos = new Float32Array(2000 * 3);
+            for (let i = 0; i < 2000 * 3; i += 3) {
+                starPos[i] = (Math.random() - 0.5) * 100;
+                starPos[i + 1] = (Math.random() - 0.5) * 100;
+                starPos[i + 2] = (Math.random() - 0.5) * 100 - 20;
             }
-
-            starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            const starMaterial = new THREE.PointsMaterial({
-                color: 0x00d4ff,
-                size: 0.1,
-                transparent: true,
-                opacity: 0.6
-            });
-            const stars = new THREE.Points(starGeometry, starMaterial);
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x4488ff, size: 0.15 }));
             scene.add(stars);
 
-            // Main rocket group
+            // Rocket group
             rocketGroup = new THREE.Group();
-            partsGroup = new THREE.Group();
-            rocketGroup.add(partsGroup);
 
-            // === BUILD STARSHIP ===
+            // Nose cone
+            const nose = new THREE.Mesh(
+                new THREE.ConeGeometry(0.5, 1.5, 12),
+                createHoloMaterial(0x00ffaa)
+            );
+            nose.position.y = 4;
+            rocketGroup.add(nose);
 
-            // Nose Cone (top)
-            const noseGeo = new THREE.ConeGeometry(0.6, 1.5, 16);
-            const noseCone = createRocketPart(noseGeo, 'noseCone', 4.5, 2.5);
-            partsGroup.add(noseCone);
-            rocketParts.push(noseCone);
+            // Upper body
+            const upper = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.5, 0.5, 2, 12),
+                createHoloMaterial()
+            );
+            upper.position.y = 2.5;
+            rocketGroup.add(upper);
 
-            // Payload Bay
-            const payloadGeo = new THREE.CylinderGeometry(0.6, 0.6, 1.5, 16);
-            const payloadBay = createRocketPart(payloadGeo, 'payloadBay', 3.0, 1.8);
-            partsGroup.add(payloadBay);
-            rocketParts.push(payloadBay);
+            // Middle tank
+            const middle = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.5, 0.5, 2.5, 12),
+                createHoloMaterial()
+            );
+            middle.position.y = 0.5;
+            rocketGroup.add(middle);
 
-            // LOX Tank (larger)
-            const loxGeo = new THREE.CylinderGeometry(0.6, 0.6, 2.2, 16);
-            const loxTank = createRocketPart(loxGeo, 'loxTank', 1.4, 0.8);
-            partsGroup.add(loxTank);
-            rocketParts.push(loxTank);
+            // Lower body
+            const lower = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.5, 0.6, 1.5, 12),
+                createHoloMaterial()
+            );
+            lower.position.y = -1.25;
+            rocketGroup.add(lower);
 
-            // CH4 Tank
-            const ch4Geo = new THREE.CylinderGeometry(0.6, 0.6, 1.8, 16);
-            const ch4Tank = createRocketPart(ch4Geo, 'ch4Tank', -0.4, -0.3);
-            partsGroup.add(ch4Tank);
-            rocketParts.push(ch4Tank);
+            // Engine section
+            const engine = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.6, 0.55, 0.8, 12),
+                createHoloMaterial(0x00ffaa)
+            );
+            engine.position.y = -2.4;
+            rocketGroup.add(engine);
 
-            // Engine Bay
-            const engineBayGeo = new THREE.CylinderGeometry(0.6, 0.7, 1.0, 16);
-            const engineBay = createRocketPart(engineBayGeo, 'engineBay', -1.6, -1.2);
-            partsGroup.add(engineBay);
-            rocketParts.push(engineBay);
-
-            // Raptor Engines (6 cones)
-            const enginesGroup = new THREE.Group();
-            enginesGroup.userData = {
-                name: 'raptorEngines',
-                baseY: -2.5,
-                explosionOffset: -2.0
-            };
-
-            for (let i = 0; i < 6; i++) {
-                const angle = (i / 6) * Math.PI * 2;
-                const radius = i < 3 ? 0.3 : 0.5;
-                const engineGeo = new THREE.ConeGeometry(0.12, 0.5, 8);
-                const engine = new THREE.Mesh(engineGeo, createHoloMaterial(0x00ff88, 0.7));
-                engine.position.x = Math.cos(angle) * radius;
-                engine.position.z = Math.sin(angle) * radius;
-                engine.position.y = -0.25;
-                engine.rotation.x = Math.PI;
-
-                // Engine glow
-                const engineGlow = new THREE.Mesh(
-                    new THREE.ConeGeometry(0.15, 0.6, 8),
-                    createGlowMaterial(0x00ff88)
+            // Engines (3 cones)
+            for (let i = 0; i < 3; i++) {
+                const angle = (i / 3) * Math.PI * 2;
+                const eng = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.15, 0.5, 8),
+                    createHoloMaterial(0x00ff66)
                 );
-                engineGlow.position.copy(engine.position);
-                engineGlow.rotation.x = Math.PI;
-
-                enginesGroup.add(engine);
-                enginesGroup.add(engineGlow);
+                eng.position.x = Math.cos(angle) * 0.3;
+                eng.position.z = Math.sin(angle) * 0.3;
+                eng.position.y = -3;
+                eng.rotation.x = Math.PI;
+                rocketGroup.add(eng);
             }
-            enginesGroup.position.y = -2.5;
-            partsGroup.add(enginesGroup);
-            rocketParts.push(enginesGroup);
 
-            // Grid Fins (4)
-            const finsGroup = new THREE.Group();
-            finsGroup.userData = {
-                name: 'fins',
-                baseY: -1.2,
-                explosionOffset: -0.8
-            };
-
+            // Fins (4)
             for (let i = 0; i < 4; i++) {
                 const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
-                const finGeo = new THREE.BoxGeometry(0.5, 0.8, 0.05);
-                const fin = new THREE.Mesh(finGeo, createHoloMaterial(0x00d4ff, 0.5));
-                fin.position.x = Math.cos(angle) * 0.75;
-                fin.position.z = Math.sin(angle) * 0.75;
-                fin.rotation.y = -angle;
-
-                const finEdges = new THREE.EdgesGeometry(finGeo);
-                const finLine = new THREE.LineSegments(
-                    finEdges,
-                    new THREE.LineBasicMaterial({ color: 0x00ffff })
+                const fin = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.6, 1, 0.05),
+                    createHoloMaterial(0x00aaff)
                 );
-                finLine.position.copy(fin.position);
-                finLine.rotation.copy(fin.rotation);
-
-                finsGroup.add(fin);
-                finsGroup.add(finLine);
+                fin.position.x = Math.cos(angle) * 0.7;
+                fin.position.z = Math.sin(angle) * 0.7;
+                fin.position.y = -2;
+                fin.rotation.y = -angle;
+                rocketGroup.add(fin);
             }
-            finsGroup.position.y = -1.2;
-            partsGroup.add(finsGroup);
-            rocketParts.push(finsGroup);
+
+            // Add edges for glow effect
+            rocketGroup.children.forEach(child => {
+                if (child.geometry) {
+                    const edges = new THREE.EdgesGeometry(child.geometry);
+                    const line = new THREE.LineSegments(
+                        edges,
+                        new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.5 })
+                    );
+                    line.position.copy(child.position);
+                    line.rotation.copy(child.rotation);
+                    rocketGroup.add(line);
+                }
+            });
 
             scene.add(rocketGroup);
 
-            // Ambient particles
-            const particleGeo = new THREE.BufferGeometry();
-            const particleCount = 500;
-            const pPositions = new Float32Array(particleCount * 3);
-
-            for (let i = 0; i < particleCount * 3; i += 3) {
-                pPositions[i] = (Math.random() - 0.5) * 10;
-                pPositions[i + 1] = (Math.random() - 0.5) * 15;
-                pPositions[i + 2] = (Math.random() - 0.5) * 10;
-            }
-
-            particleGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
-            const particleMat = new THREE.PointsMaterial({
-                color: 0x00d4ff,
-                size: 0.02,
-                transparent: true,
-                opacity: 0.4
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
             });
-            const particles = new THREE.Points(particleGeo, particleMat);
-            scene.add(particles);
-
-            window.addEventListener('resize', onWindowResize);
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        function updatePartHighlight(partName) {
-            const partLabel = document.getElementById('part-label');
-            const partNameEl = document.getElementById('part-name');
-            const partDescEl = document.getElementById('part-desc');
-
-            rocketParts.forEach(part => {
-                const data = part.userData;
-                const isHighlighted = data.name === partName;
-
-                if (data.mesh) {
-                    data.mesh.material.color.setHex(isHighlighted ? 0x00ff88 : 0x00d4ff);
-                    data.mesh.material.opacity = isHighlighted ? 0.8 : 0.6;
-                }
-                if (data.glow) {
-                    data.glow.material.color.setHex(isHighlighted ? 0x00ff88 : 0x00d4ff);
-                    data.glow.material.opacity = isHighlighted ? 0.3 : 0.15;
-                }
-                if (data.edges) {
-                    data.edges.material.color.setHex(isHighlighted ? 0x00ff88 : 0x00ffff);
-                }
-            });
-
-            if (partName && partData[partName]) {
-                partNameEl.textContent = partData[partName].name;
-                partDescEl.textContent = partData[partName].desc;
-                partLabel.classList.add('visible');
-            } else {
-                partLabel.classList.remove('visible');
-            }
         }
 
         function animate() {
             requestAnimationFrame(animate);
 
-            // Apply rotation with momentum
-            if (!bothPinching) {
-                rotationVelocityX *= 0.95;
-                rotationVelocityY *= 0.95;
-                targetRotationX += rotationVelocityX;
-                targetRotationY += rotationVelocityY;
-            }
-
-            // Smooth rotation
-            currentRotationX += (targetRotationX - currentRotationX) * 0.1;
-            currentRotationY += (targetRotationY - currentRotationY) * 0.1;
-
-            rocketGroup.rotation.x = currentRotationX;
-            rocketGroup.rotation.y = currentRotationY;
-
-            // Smooth zoom
+            // Smooth interpolation
+            currentRotX += (targetRotX - currentRotX) * 0.1;
+            currentRotY += (targetRotY - currentRotY) * 0.1;
             currentZoom += (targetZoom - currentZoom) * 0.1;
+
+            rocketGroup.rotation.x = currentRotX;
+            rocketGroup.rotation.y = currentRotY;
             camera.position.z = currentZoom;
-
-            // Smooth explosion
-            explosionLevel += (targetExplosion - explosionLevel) * 0.08;
-
-            // Update explosion bar
-            document.getElementById('explosion-bar').style.width = (explosionLevel * 100) + '%';
-            document.getElementById('explosion-status').textContent = Math.round(explosionLevel * 100) + '%';
-
-            // Apply explosion to parts
-            rocketParts.forEach(part => {
-                const data = part.userData;
-                const explosionY = data.explosionOffset * explosionLevel * 2;
-                part.position.y = data.baseY + explosionY;
-
-                // Add slight rotation during explosion
-                if (explosionLevel > 0.1) {
-                    part.rotation.z = Math.sin(Date.now() * 0.001 + data.baseY) * explosionLevel * 0.1;
-                } else {
-                    part.rotation.z = 0;
-                }
-            });
 
             renderer.render(scene, camera);
         }
 
-        // Hand tracking
         async function initHandTracking() {
             const video = document.getElementById('webcam');
             const canvas = document.getElementById('canvas');
             const ctx = canvas.getContext('2d');
             const loading = document.getElementById('loading');
+            const cursorLeft = document.getElementById('cursor-left');
+            const cursorRight = document.getElementById('cursor-right');
+            const zoomIndicator = document.getElementById('zoom-indicator');
 
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
@@ -685,217 +353,152 @@
                 video.srcObject = stream;
                 await video.play();
             } catch (err) {
-                console.error('Error accessing webcam:', err);
-                loading.innerHTML = '❌ CAMERA ACCESS DENIED<br><span style="font-size: 12px; opacity: 0.6;">Please allow camera access and refresh</span>';
+                loading.innerHTML = '❌ Camera access needed';
                 return;
             }
 
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
 
-            const hands = new Hands({
+            const mpHands = new Hands({
                 locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
             });
 
-            hands.setOptions({
+            mpHands.setOptions({
                 maxNumHands: 2,
                 modelComplexity: 1,
                 minDetectionConfidence: 0.7,
                 minTrackingConfidence: 0.5
             });
 
-            hands.onResults((results) => {
+            mpHands.onResults((results) => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                leftHand = null;
-                rightHand = null;
+                hands.left = null;
+                hands.right = null;
 
                 if (results.multiHandLandmarks && results.multiHandedness) {
                     for (let i = 0; i < results.multiHandLandmarks.length; i++) {
                         const landmarks = results.multiHandLandmarks[i];
-                        const handedness = results.multiHandedness[i].label;
+                        const label = results.multiHandedness[i].label;
 
-                        // Draw hand
-                        drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
-                            color: handedness === 'Left' ? '#00ff88' : '#00d4ff',
-                            lineWidth: 2
-                        });
-                        drawLandmarks(ctx, landmarks, {
-                            color: handedness === 'Left' ? '#00ff88' : '#00d4ff',
-                            lineWidth: 1,
-                            radius: 3
-                        });
+                        // Draw on mini canvas
+                        drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#00ff66', lineWidth: 2 });
 
-                        // Note: MediaPipe mirrors, so Left in camera = Right hand
-                        if (handedness === 'Left') {
-                            rightHand = landmarks;
+                        // MediaPipe mirrors: "Left" = right hand visually
+                        if (label === 'Left') {
+                            hands.right = landmarks;
                         } else {
-                            leftHand = landmarks;
+                            hands.left = landmarks;
                         }
                     }
                 }
 
-                processHands();
+                // Update cursors and process gestures
+                processHands(cursorLeft, cursorRight, zoomIndicator);
             });
 
             loading.style.display = 'none';
 
-            const mpCamera = new Camera(video, {
-                onFrame: async () => {
-                    await hands.send({ image: video });
-                },
+            const cam = new Camera(video, {
+                onFrame: async () => await mpHands.send({ image: video }),
                 width: 640,
                 height: 480
             });
-            mpCamera.start();
+            cam.start();
         }
 
-        function getPinchDistance(hand) {
-            if (!hand) return 1;
+        function getPinchCenter(hand) {
             const thumb = hand[4];
             const index = hand[8];
-            return Math.sqrt(
-                Math.pow(thumb.x - index.x, 2) +
-                Math.pow(thumb.y - index.y, 2)
-            );
-        }
-
-        function getHandCenter(hand) {
-            if (!hand) return null;
-            const wrist = hand[0];
-            const middleMcp = hand[9];
             return {
-                x: (wrist.x + middleMcp.x) / 2,
-                y: (wrist.y + middleMcp.y) / 2,
-                z: (wrist.z + middleMcp.z) / 2
+                x: (thumb.x + index.x) / 2,
+                y: (thumb.y + index.y) / 2
             };
         }
 
-        function isPointing(hand) {
-            if (!hand) return false;
-            // Index extended, other fingers curled
-            const indexTip = hand[8];
-            const indexMcp = hand[5];
-            const middleTip = hand[12];
-            const middleMcp = hand[9];
-
-            const indexExtended = indexTip.y < indexMcp.y - 0.1;
-            const middleCurled = middleTip.y > middleMcp.y - 0.05;
-
-            return indexExtended && middleCurled;
+        function getPinchDistance(hand) {
+            const thumb = hand[4];
+            const index = hand[8];
+            return Math.sqrt(Math.pow(thumb.x - index.x, 2) + Math.pow(thumb.y - index.y, 2));
         }
 
-        function processHands() {
-            const leftStatus = document.getElementById('left-status');
-            const rightStatus = document.getElementById('right-status');
-            const modeStatus = document.getElementById('mode-status');
+        function processHands(cursorLeft, cursorRight, zoomIndicator) {
+            const leftHand = hands.left;
+            const rightHand = hands.right;
 
-            // Update status displays
-            leftStatus.textContent = leftHand ? 'TRACKING' : 'SEARCHING';
-            leftStatus.className = leftHand ? 'value' : 'value inactive';
-            rightStatus.textContent = rightHand ? 'TRACKING' : 'SEARCHING';
-            rightStatus.className = rightHand ? 'value' : 'value inactive';
-
-            if (!leftHand && !rightHand) {
-                modeStatus.textContent = 'STANDBY';
-                lastLeftPos = null;
-                lastRightPos = null;
-                bothPinching = false;
-                return;
-            }
-
-            const leftPinch = getPinchDistance(leftHand);
-            const rightPinch = getPinchDistance(rightHand);
-            const leftCenter = getHandCenter(leftHand);
-            const rightCenter = getHandCenter(rightHand);
-
-            const leftIsPinching = leftPinch < 0.08;
-            const rightIsPinching = rightPinch < 0.08;
-
-            // Check for two-hand gestures
-            if (leftHand && rightHand) {
-                const handDistance = Math.abs(leftCenter.x - rightCenter.x);
-
-                // Both pinching = grab and spin with momentum
-                if (leftIsPinching && rightIsPinching) {
-                    bothPinching = true;
-                    modeStatus.textContent = 'GRAB & SPIN';
-
-                    if (lastLeftPos && lastRightPos) {
-                        const avgDeltaX = ((leftCenter.x - lastLeftPos.x) + (rightCenter.x - lastRightPos.x)) / 2;
-                        const avgDeltaY = ((leftCenter.y - lastLeftPos.y) + (rightCenter.y - lastRightPos.y)) / 2;
-
-                        rotationVelocityY = -avgDeltaX * 0.5;
-                        rotationVelocityX = avgDeltaY * 0.5;
-                        targetRotationY += rotationVelocityY;
-                        targetRotationX += rotationVelocityX;
-                    }
-                } else {
-                    bothPinching = false;
-
-                    // Explosion based on hand distance
-                    targetExplosion = Math.max(0, Math.min(1, (handDistance - 0.2) * 2));
-                    modeStatus.textContent = targetExplosion > 0.1 ? 'EXPLODE VIEW' : 'TWO HANDS';
-                }
+            // Update left cursor
+            if (leftHand) {
+                const pos = getPinchCenter(leftHand);
+                const isPinching = getPinchDistance(leftHand) < 0.07;
+                cursorLeft.style.left = ((1 - pos.x) * window.innerWidth) + 'px';
+                cursorLeft.style.top = (pos.y * window.innerHeight) + 'px';
+                cursorLeft.classList.add('visible');
+                cursorLeft.classList.toggle('pinching', isPinching);
             } else {
-                bothPinching = false;
-
-                // Single left hand = rotate
-                if (leftHand && lastLeftPos) {
-                    const deltaX = leftCenter.x - lastLeftPos.x;
-                    const deltaY = leftCenter.y - lastLeftPos.y;
-                    targetRotationY -= deltaX * 3;
-                    targetRotationX += deltaY * 3;
-                    modeStatus.textContent = 'ROTATE';
-                }
-
-                // Single right hand = zoom
-                if (rightHand) {
-                    // Use hand's Z position (distance from camera) for zoom
-                    // Or use Y position as alternative
-                    const zoomFactor = rightCenter.y;
-                    targetZoom = 4 + zoomFactor * 10;
-                    targetZoom = Math.max(3, Math.min(15, targetZoom));
-                    modeStatus.textContent = leftHand ? 'ROTATE + ZOOM' : 'ZOOM';
-                }
-
-                // Pointing gesture = highlight part
-                if (isPointing(rightHand) || isPointing(leftHand)) {
-                    const pointingHand = isPointing(rightHand) ? rightHand : leftHand;
-                    const indexTip = pointingHand[8];
-
-                    // Simple part detection based on Y position of finger
-                    const normalizedY = 1 - indexTip.y; // Invert Y
-                    let hoveredPart = null;
-
-                    if (normalizedY > 0.75) hoveredPart = 'noseCone';
-                    else if (normalizedY > 0.65) hoveredPart = 'payloadBay';
-                    else if (normalizedY > 0.5) hoveredPart = 'loxTank';
-                    else if (normalizedY > 0.35) hoveredPart = 'ch4Tank';
-                    else if (normalizedY > 0.25) hoveredPart = 'engineBay';
-                    else if (normalizedY > 0.15) hoveredPart = 'fins';
-                    else hoveredPart = 'raptorEngines';
-
-                    updatePartHighlight(hoveredPart);
-                    modeStatus.textContent = 'INSPECT';
-                } else {
-                    updatePartHighlight(null);
-                }
+                cursorLeft.classList.remove('visible', 'pinching');
             }
 
-            // Collapse when hands come together
-            if (leftHand && rightHand) {
-                const handDistance = Math.abs(leftCenter.x - rightCenter.x);
-                if (handDistance < 0.15) {
-                    targetExplosion = 0;
-                }
+            // Update right cursor
+            if (rightHand) {
+                const pos = getPinchCenter(rightHand);
+                const isPinching = getPinchDistance(rightHand) < 0.07;
+                cursorRight.style.left = ((1 - pos.x) * window.innerWidth) + 'px';
+                cursorRight.style.top = (pos.y * window.innerHeight) + 'px';
+                cursorRight.classList.add('visible');
+                cursorRight.classList.toggle('pinching', isPinching);
+            } else {
+                cursorRight.classList.remove('visible', 'pinching');
             }
 
-            lastLeftPos = leftCenter;
-            lastRightPos = rightCenter;
+            // Gesture logic
+            const leftPinching = leftHand && getPinchDistance(leftHand) < 0.07;
+            const rightPinching = rightHand && getPinchDistance(rightHand) < 0.07;
+
+            // Two hands pinching = zoom
+            if (leftPinching && rightPinching) {
+                const leftPos = getPinchCenter(leftHand);
+                const rightPos = getPinchCenter(rightHand);
+                const dist = Math.sqrt(
+                    Math.pow(leftPos.x - rightPos.x, 2) +
+                    Math.pow(leftPos.y - rightPos.y, 2)
+                );
+
+                if (lastTwoHandDist !== null) {
+                    const delta = (lastTwoHandDist - dist) * 15;
+                    targetZoom = Math.max(3, Math.min(12, targetZoom + delta));
+                }
+
+                lastTwoHandDist = dist;
+                lastPinchPos = null; // Disable rotation during zoom
+
+                zoomIndicator.classList.add('visible');
+            }
+            // Single hand pinching = rotate
+            else if (leftPinching || rightPinching) {
+                const hand = leftPinching ? leftHand : rightHand;
+                const pos = getPinchCenter(hand);
+
+                if (lastPinchPos !== null) {
+                    const deltaX = (pos.x - lastPinchPos.x) * 5;
+                    const deltaY = (pos.y - lastPinchPos.y) * 5;
+                    targetRotY -= deltaX;
+                    targetRotX += deltaY;
+                }
+
+                lastPinchPos = pos;
+                lastTwoHandDist = null;
+
+                zoomIndicator.classList.remove('visible');
+            }
+            // No pinch = reset
+            else {
+                lastPinchPos = null;
+                lastTwoHandDist = null;
+                zoomIndicator.classList.remove('visible');
+            }
         }
 
-        // Initialize everything
         initScene();
         animate();
         initHandTracking();
