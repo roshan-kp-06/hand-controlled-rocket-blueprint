@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Control Earth</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: #000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #webcam {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 240px;
+            height: 180px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            transform: scaleX(-1);
+            z-index: 100;
+            object-fit: cover;
+        }
+
+        #canvas {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 240px;
+            height: 180px;
+            border-radius: 12px;
+            z-index: 101;
+            pointer-events: none;
+            transform: scaleX(-1);
+        }
+
+        #instructions {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 20px;
+            border-radius: 12px;
+            max-width: 300px;
+            backdrop-filter: blur(10px);
+        }
+
+        #instructions h1 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #00d4ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #instructions p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 10px;
+        }
+
+        #instructions .gesture {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 8px 0;
+        }
+
+        #instructions .gesture-icon {
+            font-size: 20px;
+        }
+
+        #status {
+            position: fixed;
+            top: 20px;
+            right: 280px;
+            color: white;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            font-size: 14px;
+        }
+
+        #status.detecting {
+            border: 1px solid #00ff88;
+        }
+
+        #status.no-hand {
+            border: 1px solid #ff6b6b;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            z-index: 200;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #pinch-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+            border: 3px solid #00ff88;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.2s;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        #pinch-indicator.active {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(0.8);
+        }
+    </style>
+</head>
+<body>
+    <div id="loading" class="loading">
+        <div class="loading-spinner"></div>
+        <div>Loading Hand Tracking...</div>
+    </div>
+
+    <div id="container"></div>
+
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <div id="instructions">
+        <h1>🌍 Hand Control Earth</h1>
+        <div class="gesture">
+            <span class="gesture-icon">👆</span>
+            <span>Move hand to rotate globe</span>
+        </div>
+        <div class="gesture">
+            <span class="gesture-icon">🤏</span>
+            <span>Pinch to grab & spin</span>
+        </div>
+        <div class="gesture">
+            <span class="gesture-icon">✌️</span>
+            <span>Two fingers apart = zoom out</span>
+        </div>
+        <div class="gesture">
+            <span class="gesture-icon">👌</span>
+            <span>Fingers together = zoom in</span>
+        </div>
+    </div>
+
+    <div id="status" class="no-hand">No hand detected</div>
+    <div id="pinch-indicator"></div>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+    <script>
+        // Three.js setup
+        let scene, camera, renderer, earth, clouds, stars;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+        let currentRotationX = 0;
+        let currentRotationY = 0;
+        let targetZoom = 5;
+        let currentZoom = 5;
+
+        // Hand tracking state
+        let isPinching = false;
+        let lastHandPosition = null;
+        let pinchStartDistance = null;
+
+        // Initialize Three.js scene
+        function initScene() {
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(
+                45,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.z = 5;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            // Create starfield
+            const starGeometry = new THREE.BufferGeometry();
+            const starCount = 10000;
+            const positions = new Float32Array(starCount * 3);
+
+            for (let i = 0; i < starCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 2000;
+                positions[i + 1] = (Math.random() - 0.5) * 2000;
+                positions[i + 2] = (Math.random() - 0.5) * 2000;
+            }
+
+            starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const starMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.5,
+                transparent: true,
+                opacity: 0.8
+            });
+            stars = new THREE.Points(starGeometry, starMaterial);
+            scene.add(stars);
+
+            // Create Earth
+            const earthGeometry = new THREE.SphereGeometry(1, 64, 64);
+
+            // Create a procedural Earth texture
+            const earthCanvas = document.createElement('canvas');
+            earthCanvas.width = 2048;
+            earthCanvas.height = 1024;
+            const ctx = earthCanvas.getContext('2d');
+
+            // Ocean gradient
+            const oceanGradient = ctx.createLinearGradient(0, 0, 0, 1024);
+            oceanGradient.addColorStop(0, '#1a4969');
+            oceanGradient.addColorStop(0.5, '#1e5f8a');
+            oceanGradient.addColorStop(1, '#1a4969');
+            ctx.fillStyle = oceanGradient;
+            ctx.fillRect(0, 0, 2048, 1024);
+
+            // Add some landmasses (simplified continents)
+            ctx.fillStyle = '#2d5a27';
+
+            // North America
+            ctx.beginPath();
+            ctx.ellipse(400, 300, 200, 150, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // South America
+            ctx.beginPath();
+            ctx.ellipse(550, 600, 100, 180, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Europe/Africa
+            ctx.beginPath();
+            ctx.ellipse(1100, 350, 80, 100, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(1100, 550, 100, 150, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Asia
+            ctx.beginPath();
+            ctx.ellipse(1400, 300, 250, 150, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Australia
+            ctx.beginPath();
+            ctx.ellipse(1650, 650, 100, 70, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Antarctica
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 950, 2048, 74);
+            ctx.fillRect(0, 0, 2048, 50);
+
+            const earthTexture = new THREE.CanvasTexture(earthCanvas);
+
+            const earthMaterial = new THREE.MeshPhongMaterial({
+                map: earthTexture,
+                bumpScale: 0.05,
+                specular: new THREE.Color(0x333333),
+                shininess: 5
+            });
+
+            earth = new THREE.Mesh(earthGeometry, earthMaterial);
+            scene.add(earth);
+
+            // Create atmosphere glow
+            const atmosphereGeometry = new THREE.SphereGeometry(1.15, 64, 64);
+            const atmosphereMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00aaff,
+                transparent: true,
+                opacity: 0.1,
+                side: THREE.BackSide
+            });
+            const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+            scene.add(atmosphere);
+
+            // Create clouds
+            const cloudGeometry = new THREE.SphereGeometry(1.02, 64, 64);
+
+            const cloudCanvas = document.createElement('canvas');
+            cloudCanvas.width = 1024;
+            cloudCanvas.height = 512;
+            const cloudCtx = cloudCanvas.getContext('2d');
+
+            cloudCtx.fillStyle = 'rgba(0, 0, 0, 0)';
+            cloudCtx.fillRect(0, 0, 1024, 512);
+
+            // Add cloud patterns
+            cloudCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            for (let i = 0; i < 100; i++) {
+                const x = Math.random() * 1024;
+                const y = Math.random() * 512;
+                const radius = Math.random() * 50 + 20;
+                cloudCtx.beginPath();
+                cloudCtx.arc(x, y, radius, 0, Math.PI * 2);
+                cloudCtx.fill();
+            }
+
+            const cloudTexture = new THREE.CanvasTexture(cloudCanvas);
+
+            const cloudMaterial = new THREE.MeshPhongMaterial({
+                map: cloudTexture,
+                transparent: true,
+                opacity: 0.4,
+                depthWrite: false
+            });
+
+            clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+            scene.add(clouds);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            sunLight.position.set(5, 3, 5);
+            scene.add(sunLight);
+
+            // Handle resize
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Smooth rotation
+            currentRotationX += (targetRotationX - currentRotationX) * 0.08;
+            currentRotationY += (targetRotationY - currentRotationY) * 0.08;
+
+            earth.rotation.x = currentRotationX;
+            earth.rotation.y = currentRotationY;
+            clouds.rotation.x = currentRotationX;
+            clouds.rotation.y = currentRotationY + 0.001;
+
+            // Auto-rotate clouds slightly
+            clouds.rotation.y += 0.0002;
+
+            // Smooth zoom
+            currentZoom += (targetZoom - currentZoom) * 0.1;
+            camera.position.z = currentZoom;
+
+            // Slowly rotate stars
+            stars.rotation.y += 0.0001;
+
+            renderer.render(scene, camera);
+        }
+
+        // Hand tracking setup
+        async function initHandTracking() {
+            const video = document.getElementById('webcam');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const status = document.getElementById('status');
+            const pinchIndicator = document.getElementById('pinch-indicator');
+            const loading = document.getElementById('loading');
+
+            // Get webcam
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: 640,
+                        height: 480,
+                        facingMode: 'user'
+                    }
+                });
+                video.srcObject = stream;
+                await video.play();
+            } catch (err) {
+                console.error('Error accessing webcam:', err);
+                loading.innerHTML = '❌ Camera access denied. Please allow camera access and refresh.';
+                return;
+            }
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Initialize MediaPipe Hands
+            const hands = new Hands({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                }
+            });
+
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.5
+            });
+
+            hands.onResults((results) => {
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                    const landmarks = results.multiHandLandmarks[0];
+
+                    // Draw hand landmarks
+                    drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
+                        color: '#00FF88',
+                        lineWidth: 2
+                    });
+                    drawLandmarks(ctx, landmarks, {
+                        color: '#00D4FF',
+                        lineWidth: 1,
+                        radius: 3
+                    });
+
+                    // Get key points
+                    const thumbTip = landmarks[4];
+                    const indexTip = landmarks[8];
+                    const middleTip = landmarks[12];
+                    const wrist = landmarks[0];
+
+                    // Calculate pinch distance (thumb to index)
+                    const pinchDistance = Math.sqrt(
+                        Math.pow(thumbTip.x - indexTip.x, 2) +
+                        Math.pow(thumbTip.y - indexTip.y, 2)
+                    );
+
+                    // Calculate zoom distance (index to middle finger)
+                    const zoomDistance = Math.sqrt(
+                        Math.pow(indexTip.x - middleTip.x, 2) +
+                        Math.pow(indexTip.y - middleTip.y, 2)
+                    );
+
+                    // Pinch detection (threshold ~0.08)
+                    const wasPinching = isPinching;
+                    isPinching = pinchDistance < 0.08;
+
+                    // Update UI
+                    if (isPinching) {
+                        status.textContent = '🤏 Pinching - Drag to rotate!';
+                        status.className = 'detecting';
+                        pinchIndicator.classList.add('active');
+                    } else {
+                        status.textContent = '✋ Hand detected';
+                        status.className = 'detecting';
+                        pinchIndicator.classList.remove('active');
+                    }
+
+                    // Hand center position for rotation
+                    const handCenter = {
+                        x: (indexTip.x + thumbTip.x) / 2,
+                        y: (indexTip.y + thumbTip.y) / 2
+                    };
+
+                    if (isPinching && lastHandPosition) {
+                        // Calculate rotation based on hand movement
+                        const deltaX = (handCenter.x - lastHandPosition.x) * 5;
+                        const deltaY = (handCenter.y - lastHandPosition.y) * 5;
+
+                        targetRotationY -= deltaX;
+                        targetRotationX += deltaY;
+
+                        // Clamp vertical rotation
+                        targetRotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetRotationX));
+                    }
+
+                    // Zoom based on finger spread (index to middle)
+                    if (pinchStartDistance === null) {
+                        pinchStartDistance = zoomDistance;
+                    }
+
+                    const zoomDelta = (zoomDistance - 0.1) * 20;
+                    targetZoom = 5 - zoomDelta;
+                    targetZoom = Math.max(2, Math.min(10, targetZoom));
+
+                    lastHandPosition = handCenter;
+
+                } else {
+                    status.textContent = '👋 Show your hand';
+                    status.className = 'no-hand';
+                    pinchIndicator.classList.remove('active');
+                    isPinching = false;
+                    lastHandPosition = null;
+                    pinchStartDistance = null;
+                }
+            });
+
+            // Hide loading
+            loading.style.display = 'none';
+
+            // Start camera
+            const mpCamera = new Camera(video, {
+                onFrame: async () => {
+                    await hands.send({ image: video });
+                },
+                width: 640,
+                height: 480
+            });
+            mpCamera.start();
+        }
+
+        // Initialize everything
+        initScene();
+        animate();
+        initHandTracking();
+    </script>
+</body>
+</html>
